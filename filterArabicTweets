@@ -1,0 +1,81 @@
+import pandas as pd
+import datetime
+import io
+import csv
+from pyarabic.araby import tokenize, is_arabicrange, strip_tashkeel
+import pandas as pd
+import datetime
+import io
+import csv
+import requests
+import flask
+import json
+
+#------------------------------------------------------------
+#--------------------PREPROCCESSING--------------------------
+#------------------------------------------------------------
+
+#read csv file
+Original_tweets = pd.read_csv(r"whoplay2.csv")
+
+#print original tweets length
+print ("Original", (len(Original_tweets)))
+
+#Filter rows based on columns
+Filtered_tweets = Original_tweets[ (Original_tweets['video'] == 0) & (Original_tweets['urls'] == "[]")& ( Original_tweets['quote_url'].isnull())& (Original_tweets['retweets_count'] == 0)]
+
+print ("Filtered", (len(Filtered_tweets)))
+
+#remove tashkeel and filter out non-Arabic words, split tweet into words
+for row in Filtered_tweets['tweet']:
+  token= tokenize(row, conditions=is_arabicrange, morphs=strip_tashkeel)
+
+#------------------------------------------------------------
+#---------------- sentiment analysis -------------------------
+#------------------------------------------------------------
+
+'''
+This function offers the ability to predict the sentiment of a single sentence 
+through the API, the sentiment is one of three classes (positive negative, neutral)
+Input: 
+        sentence(str): the input sentence of which the sentiment is to be predicted
+Output:
+        prediction(str): the sentiment of the given sentence 
+'''
+
+
+def predict(sentence):
+    url = "http://mazajak.inf.ed.ac.uk:8000/api/predict"
+    to_sent = {'data': sentence}
+    data = json.dumps(to_sent)
+    headers = {'content-type': 'application/json'}
+    # sending get request and saving the response as response object
+    response = requests.post(url=url, data=data, headers=headers)
+
+    prediction = json.loads(response.content)['data']
+
+    return prediction
+
+
+'''
+This is an example to use the functions
+'''
+positive = 0
+negative = 0
+neutral = 0
+
+for tweet in Filtered_tweets['tweet']:
+    print(predict(tweet))
+    if 'negative' == predict(tweet):
+      negative += 1
+      print('NEGATIVE= ', tweet)
+    elif 'positive' == predict(tweet):
+      positive += 1
+      print('POSITIVE= ', tweet)
+    elif 'neutral' == predict(tweet):
+      neutral += 1
+      print('NEUTRAL= ', tweet)
+
+print('negative tweets =', negative, 'out of =', len(Filtered_tweets))
+print('positive tweets =', positive, 'out of =', len(Filtered_tweets))
+print('neutral tweets =', neutral, 'out of =', len(Filtered_tweets))
